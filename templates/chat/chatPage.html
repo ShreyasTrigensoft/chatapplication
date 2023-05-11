@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Chat</title>
+    	<script src="https://code.jquery.com/jquery-3.6.4.js"></script>
+	</head>
+<body>
+	<center><h1>Hello , Welcome to my chat site ! {{request.user}}</h1></center>
+	<br>
+	{% if request.user.is_authenticated %}
+	<center> Logout the chat Page <a href = "{% url 'logout-user' %}">Logout</a></center>
+	{% endif %}
+	<div
+	class="chat__item__container"
+	id="id_chat_item_container"
+	style="font-size: 20px"
+	>
+	<br />
+	{% if request.user.username == 'admin'  %}
+
+      <button type="start" id="id_start_button">Start</button>
+
+      <button type="stop" id="id_stop_button">Stop</button>
+
+      {% endif %}
+
+	  {% if request.user.username == 'shree'  %}
+	  <audio id="my-audio" controls autoplay></audio>
+	  {% endif %}
+	<br />
+	<br />
+	</div>
+	<script>
+	const chatSocket = new WebSocket("ws://" + window.location.host + "/");
+	var mediaRecorder = undefined;
+	chatSocket.onopen = function (e) {
+		console.log("The connection was setup successfully !");
+	};
+
+
+	$( "#id_start_button" ).on( "click", function(e) {
+        e.preventDefault();
+      
+        navigator.mediaDevices.getUserMedia({ audio: true }).then((stream) => {
+          if (!MediaRecorder.isTypeSupported("audio/webm"))
+            return alert("Browser not supported");
+
+          mediaRecorder = new MediaRecorder(stream, {
+            mimeType: "audio/webm",
+          });
+
+          mediaRecorder.addEventListener("dataavailable", async (event) => {
+              if (event.data.size > 0 && chatSocket.readyState == 1) {
+                chatSocket.send(event.data);
+                console.log("Printing", event.data);
+              }
+            });
+          mediaRecorder.start(50);
+          
+
+        });
+
+
+      });
+
+	  $("#id_stop_button").on( "click", function(event) {
+
+        	mediaRecorder.stop();
+
+    	});
+
+	chatSocket.onclose = function (e) {
+		console.log("Something unexpected happened !");
+	};
+
+	chatSocket.onmessage = function (e) {
+		const data = JSON.parse(e.data);
+		{% comment %} console.log(data); {% endcomment %}
+
+		// Assume the base64 audio is stored in a variable named audioBase64String
+		const audioBase64String = data['audio']
+		console.log(audioBase64String)
+
+		if(audioBase64String){
+			// Decode the base64 audio string into a binary string
+			const binaryString = atob(audioBase64String)
+
+			// Convert the binary string to an array buffer
+			const arrayBuffer = new ArrayBuffer(binaryString.length)
+			const bufferView = new Uint8Array(arrayBuffer)
+			for (let i = 0; i < binaryString.length; i++) {
+			bufferView[i] = binaryString.charCodeAt(i)
+			}
+
+			// Create a Blob object from the array buffer
+			const blob = new Blob([arrayBuffer], { type: "audio/mpeg" })
+
+			// Create a URL object from the Blob object
+			const url = URL.createObjectURL(blob)
+
+			// Get the audio element
+			const audio = document.getElementById("my-audio")
+
+			// Set the source of the audio element to the URL
+			audio.src = url;
+
+			// Play the audio
+			audio.play()
+		}
+
+		
+
+		
+	};
+	</script>
+</body>
+</html>
